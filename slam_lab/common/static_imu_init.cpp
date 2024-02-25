@@ -21,16 +21,17 @@ bool StaticIMUInit::TryInit() {
             _init_imu_deque, mean_gyro, _cov_gyro, [](const IMU& imu) { return imu._gyro; });
     ComputeMeanAndCovDiag(
             _init_imu_deque, mean_acce, _cov_acce, [](const IMU& imu) { return imu._acce; });
-    _gravity = -mean_acce / mean_acce.norm() * 9.8;
+    _gravity = -mean_acce / mean_acce.norm() * slam_lab::G_m_s2;
     ComputeMeanAndCovDiag(_init_imu_deque, mean_acce, _cov_acce, [this](const IMU& imu) {
         return imu._acce + _gravity;
     });
     _init_bg = mean_gyro;
     _init_ba = mean_acce;
     _init_success = true;
-    LOG(INFO) << "IMU init successfully, bg = " << _init_bg.transpose()
+    LOG(INFO) << "IMU init successfully: bg = " << _init_bg.transpose()
               << " , ba = " << _init_ba.transpose() << " , gyro sq = " << _cov_gyro.transpose()
-              << " , gyro sq = " << _cov_gyro.transpose()
-              << " , gravity = " << _gravity.transpose();
+              << " , gyro norm = " << _cov_gyro.norm() << " , acce sq = " << _cov_acce.transpose()
+              << " , acce norm = " << _cov_acce.norm() << " , gravity = " << _gravity.transpose()
+              << " , gravity norm = " << _gravity.norm();
     return true;
 }

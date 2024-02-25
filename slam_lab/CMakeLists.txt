@@ -1,6 +1,10 @@
 add_library(slam_lab_common
     common/io_utils.cpp
     common/static_imu_init.cpp
+    common/utm_convert/utm.cpp
+    common/utm_convert/tranmerc.cpp
+    common/utm_convert.cpp
+    common/eskf.cpp
 )
 target_link_libraries(slam_lab_common
     ${third_party_libs}

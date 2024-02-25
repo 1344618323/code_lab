@@ -1,9 +1,7 @@
 #pragma once
 #include <deque>
-#include <eigen3/Eigen/Eigen>
-#include <eigen3/Eigen/Geometry>
 #include <numeric>
-#include "imu.h"
+#include "sensor_type.h"
 
 class StaticIMUInit {
   public:
@@ -33,7 +31,7 @@ class StaticIMUInit {
                                    data.end(),
                                    D::Zero().eval(),
                                    [&getter, &mean](const D& sum, const auto& data) -> D {
-                                       return sum + (getter(data) - mean).cwiseAbs2().eval();
+                                       return sum + (getter(data) - mean).cwiseAbs2();
                                    }) /
                    (data.size() - 1);
     }

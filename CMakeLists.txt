@@ -2,6 +2,9 @@ cmake_minimum_required(VERSION 3.10)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+# Make (almost) all warnings into errors.
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unused-but-set-variable -Werror")
+
 list(APPEND CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/cmake)
 
 # OpenCV
@@ -30,6 +33,7 @@ include_directories(${CERES_INCLUDE_DIRS})
 # g2o
 find_package(G2O REQUIRED)
 include_directories(${G2O_INCLUDE_DIRS})
+message(STATUS "G2O_INCLUDE_DIRS: ${G2O_INCLUDE_DIRS}")
 
 # pcl
 find_package(PCL REQUIRED)
@@ -37,6 +41,16 @@ include_directories(${PCL_INCLUDE_DIRS})
 
 # gflag
 find_package(gflags REQUIRED)
+
+find_package(catkin REQUIRED COMPONENTS
+        roscpp
+        rospy
+        std_msgs
+        sensor_msgs
+        pcl_ros
+        pcl_conversions
+        )
+include_directories(${catkin_INCLUDE_DIRS})
 
 # find_package(Qt5 REQUIRED COMPONENTS Core)
 
@@ -49,6 +63,7 @@ set(third_party_libs
     ${G2O_STUFF_LIBRARY}
     ${PCL_LIBRARIES}
     gflags
+    # ${catkin_LIBRARIES} # link ros lib will cost much time
     # Qt5::Core
 )
 
