@@ -102,3 +102,16 @@ struct NavState {
     Eigen::Vector3d _gravity = Eigen::Vector3d::Zero();
     Eigen::Matrix3d _p_cov = Eigen::Matrix3d::Zero();
 };
+
+inline Eigen::Matrix3d SO3rightJacobian(const Eigen::Vector3d& v) {
+    return Sophus::SO3d::leftJacobian(-v);
+}
+inline Eigen::Matrix3d SO3leftJacobian(const Eigen::Vector3d& v) {
+    return Sophus::SO3d::leftJacobian(v);
+}
+inline Eigen::Matrix3d SO3rightJacobianInverse(const Eigen::Vector3d& v) {
+    return Sophus::SO3d::leftJacobianInverse(-v);
+}
+inline Eigen::Matrix3d SO3leftJacobianInverse(const Eigen::Vector3d& v) {
+    return Sophus::SO3d::leftJacobianInverse(v);
+}
