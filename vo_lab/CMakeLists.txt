@@ -1,0 +1,12 @@
+add_library(vo_lab
+    feature_extractor.cpp
+)
+target_link_libraries(vo_lab
+    ${third_party_libs}
+)
+add_executable(run_vo 
+    run_vo.cpp
+)
+target_link_libraries(run_vo
+    vo_lab
+)

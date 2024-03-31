@@ -45,8 +45,8 @@ int main(int argc, char** argv) {
     double antenna_angle = 12.06;
     bool gnss_inited = false;
 
-    std::ofstream imu_fout("/home/cxn/leofile/code_lab/slam_lab/data_output/imu_integration_state.txt");
-    std::ofstream gnss_fout("/home/cxn/leofile/code_lab/slam_lab/data_output/gnss_state.txt");
+    std::ofstream imu_fout("/home/cxn/leofile/code_lab/slam_lab/data/output/imu_integration_state.txt");
+    std::ofstream gnss_fout("/home/cxn/leofile/code_lab/slam_lab/data/output/gnss_state.txt");
 
     auto save_result = [](std::ofstream& fout, const NavState& state) {
         auto save_vec3 = [&fout](const Eigen::Vector3d& v) {

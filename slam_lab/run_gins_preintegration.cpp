@@ -22,7 +22,7 @@ int main(int argc, char** argv) {
     double antenna_angle = 12.06;
     GinsIntegration gins_integ;
 
-    std::ofstream fout("/home/cxn/leofile/code_lab/slam_lab/data_output/preinteg_gins_state.txt");
+    std::ofstream fout("/home/cxn/leofile/code_lab/slam_lab/data/output/preinteg_gins_state.txt");
     auto save_result = [&fout](const NavState& state) {
         auto save_vec3 = [&fout](const Eigen::Vector3d& v) {
             fout << v[0] << " " << v[1] << " " << v[2] << " ";

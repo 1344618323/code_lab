@@ -1,4 +1,4 @@
 python_proj/.idea/
 build/
 .vscode/
-slam_lab/data_output/*
+Thirdparty/Thirdparty_install/
