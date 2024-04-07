@@ -10,3 +10,7 @@
 [submodule "Thirdparty/Pangolin"]
 	path = Thirdparty/Pangolin
 	url = https://github.com/stevenlovegrove/Pangolin.git
+[submodule "python_script/leo_common/leo_common/csrc/pybind11"]
+	path = python_script/leo_common/leo_common/csrc/pybind11
+	url = https://github.com/pybind/pybind11.git
+	branch = stable

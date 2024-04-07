@@ -1,4 +1,6 @@
-python_proj/.idea/
+python_script/.idea/
+python_script/**/*.so
+python_script/**/__pycache__/
 build/
 .vscode/
 Thirdparty/Thirdparty_install/
