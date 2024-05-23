@@ -6,6 +6,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 # Make (almost) all warnings into errors.
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -Wno-unused-but-set-variable -Werror")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -march=native")
 
 # OpenCV
 find_package(OpenCV REQUIRED)
@@ -29,11 +30,10 @@ find_package(gflags REQUIRED)
 
 find_package(catkin REQUIRED COMPONENTS
         roscpp
-        rospy
-        std_msgs
+        rosbag
         sensor_msgs
-        pcl_ros
-        pcl_conversions
+        cv_bridge
+        image_transport
         )
 include_directories(${catkin_INCLUDE_DIRS})
 
@@ -63,6 +63,10 @@ include_directories(${G2O_INCLUDE_DIR})
 message(STATUS "G2O_INCLUDE_DIR: ${G2O_INCLUDE_DIR}")
 message(STATUS "G2O_LIBRARY: ${G2O_CORE_LIBRARY}, ${G2O_STUFF_LIBRARY}")
 
+# boost
+find_package(Boost REQUIRED COMPONENTS filesystem)
+include_directories(${Boost_INCLUDE_DIRS})
+
 set(third_party_libs
     ${OpenCV_LIBRARIES}
     Sophus::Sophus
@@ -72,7 +76,8 @@ set(third_party_libs
     ${G2O_STUFF_LIBRARY}
     ${PCL_LIBRARIES}
     gflags
-    # ${catkin_LIBRARIES} # link ros lib will cost much time
+    ${catkin_LIBRARIES}
+    ${Boost_LIBRARIES}
 )
 
 add_executable(main 

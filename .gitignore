@@ -4,3 +4,4 @@ python_script/**/__pycache__/
 build/
 .vscode/
 Thirdparty/Thirdparty_install/
+Thirdparty/Thirdparty_build/

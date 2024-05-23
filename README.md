@@ -36,6 +36,9 @@ Some exercises of C++ and python
    ```sh
    cd /home/cxn/leofile/code_lab/python_script/
    pip install leo_common/
+   
+   # run example
+   python3 /home/cxn/leofile/code_lab/python_script/leo_common_example.py
    ```
 
 ## pitfalls
@@ -58,4 +61,4 @@ libpango_core.so => not found
 
 ### pybind11
 
-在编译`python_script/csrc`，要注意生成python lib会使用当前python解释器。编译时采用`host(conda) python + container clib`的组合，可能会在运行时出现找不到动态库的情况。最好用`container python + container clib`的组合吧。
+在编译`python_script/csrc`，要注意生成python lib会使用当前python解释器。若编译时采用`host(conda) python + container c lib`的组合，可能会在运行时出现找不到动态库的情况。最好用`container python + container c lib`的组合吧。

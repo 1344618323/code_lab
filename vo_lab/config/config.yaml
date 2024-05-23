@@ -1,0 +1,98 @@
+%YAML:1.0
+---
+
+rosbag_file: /home/cxn/leofile/slam/dataset/plusai_bag/ros.bag
+
+debugger:
+   dir: /home/cxn/debug_vo_dir/
+   debug: 1
+   im_input: "im_input"
+   kps_extract: "kps_extract"
+   klt_tracking: "klt_tracking"
+   stereo_matching: "stereo_matching"
+
+stereo: 1
+imu: 0
+im_left_topic: /cam0/image_raw
+im_right_topic: /cam1/image_raw
+imu_topic: /imu0
+stereo_rect: 1
+mono_undist: 0
+undist_alpha: 1
+
+width: 960
+height: 540
+Kl: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1.3214800000000000e+03, 0., 480., 0., 1.3214800000000000e+03,
+       270., 0., 0., 1. ]
+Dl: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [ -6.4034021827585019e-01, 4.8455199272337723e-01, 0., 0., 0. ]
+Kr: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 1.3214800000000000e+03, 0., 480., 0., 1.3214800000000000e+03,
+       270., 0., 0., 1. ]
+Dr: !!opencv-matrix
+   rows: 1
+   cols: 5
+   dt: d
+   data: [ -6.5368575545101193e-01, 6.3363189046537594e-01, 0., 0., 0. ]
+T_b_cl: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ -2.7737148907138348e-03, -1.3001858713849823e-01,
+       9.9150767697694353e-01, 5.1100000000000003e+00,
+       -9.9998417017842200e-01, 5.2145925085985093e-03,
+       -2.1136266329473460e-03, 6.0000140987774808e-01,
+       -4.8954977560285743e-03, -9.9149784418498843e-01,
+       -1.3003099276035271e-01, 1.9815665645599365e+00, 0., 0., 0., 1. ]
+T_b_cr: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: d
+   data: [ -2.8907449926370756e-03, -1.3375401753739433e-01,
+       9.9101034625577722e-01, 5.1058724444217551e+00,
+       -9.9986939346365222e-01, -1.5371517371248493e-02,
+       -4.9912391582832187e-03, -6.0202249175517430e-01,
+       1.5900931042467183e-02, -9.9089534222657116e-01,
+       -1.3369211325157163e-01, 1.9873827957019043e+00, 0., 0., 0., 1. ]
+
+# clahe
+use_clahe: true
+clahe_val: 3
+clahe_tile_size: 50
+
+# feature extractor
+cell_size: 35
+max_quality: 0.001
+
+# klt tracker
+klt_winsize: 9
+klt_pyr_lvl: 3 # 4 level
+klt_use_prior: 1
+klt_pyr_lvl_prior: 1 # for prior, two level is enough
+max_iter: 30
+max_px_precision: 0.01
+klt_err: 300. # not useful
+max_fbklt_dist: 0.5
+klt_border: 5
+
+# stereo matching
+stereo_match_epi_err: 2
+stereo_match_sad_winsize: 7
+stereo_match_3d_klt_pyr_lvl: 1
+
+# reproj
+max_reproj_dist: 3
+
+# epi
+epi_ransac_iter: 100
+epi_errth: 3

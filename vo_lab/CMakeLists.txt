@@ -1,5 +1,20 @@
+include_directories(include)
 add_library(vo_lab
-    feature_extractor.cpp
+    src/vo.cpp
+    src/imu.cpp
+    src/utils.cpp
+    src/config.cpp
+    src/multi_view_geometry.cpp
+    src/camera.cpp
+    src/mappoint.cpp
+    src/frame.cpp
+    src/map.cpp
+    src/feature_extractor.cpp
+    src/feature_tracker.cpp
+    src/frontend.cpp
+    src/backend.cpp
+    src/estimator.cpp
+    src/viewer.cpp
 )
 target_link_libraries(vo_lab
     ${third_party_libs}

@@ -1,14 +1,15 @@
-import leo_common.leo_common.csrc.common as cb
-import leo_common.leo_common.utility.utility as util
-# if you didn't run `pip install leo_common`, import lib by above two lines.
-# In addition, these two lines will become invalid after installation
+import numpy as np
+T_b_cl = np.array([
+    -2.7737148907138348e-03, -1.3001858713849823e-01,
+       9.9150767697694353e-01, 5.1100000000000003e+00,
+       -9.9998417017842200e-01, 5.2145925085985093e-03,
+       -2.1136266329473460e-03, 6.0000140987774808e-01,
+       -4.8954977560285743e-03, -9.9149784418498843e-01,
+       -1.3003099276035271e-01, 1.9815665645599365e+00, 0., 0., 0., 1.
+])
 
-# import leo_common.csrc.common as cb
-# import leo_common.utility.utility as util
-print(cb.plus(1, 2))
-cb.create_img()
-p = cb.Pet()
-print(p.getName())
-p.setName("dog")
-print(p.getName())
-data_list = util.load_from_file("/home/cxn/leofile/code_lab/slam_lab/data/imu_gnss_odom_10.txt")
+T_b_cl = T_b_cl.reshape((4,4))
+print(T_b_cl)
+T_cl_b = np.linalg.inv(T_b_cl)
+print(T_cl_b)
+print(T_cl_b @ T_b_cl)
