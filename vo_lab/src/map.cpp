@@ -19,4 +19,9 @@ Mappoint::Ptr Map::getMappoint(uint64_t mpid) const {
     auto mpit = _map_mpts.find(mpid);
     return mpit == _map_mpts.end() ? nullptr : mpit->second;
 }
+
+std::map<uint64_t, Frame::Ptr> Map::kfs() const {
+    std::lock_guard<std::mutex> lock(_kf_mutex);
+    return _map_kfs;
+}
 }  // namespace vo_lab

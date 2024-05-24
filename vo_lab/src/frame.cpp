@@ -1,5 +1,14 @@
 #include "frame.h"
+#include "mappoint.h"
 namespace vo_lab {
+
+bool Keypoint::is3D() const {
+    auto mpptr = mp.lock();
+    if (mpptr) {
+        return mpptr->is3D();
+    }
+    return false;
+}
 
 Frame::Frame(uint64_t id_,
              double time_,
@@ -45,14 +54,19 @@ Frame::Frame(uint64_t id_,
 //       _Tcw(F._Tcw),
 //       _map_kps(F._map_kps) {}
 
-bool Frame::addKeypoint(uint64_t mpid, const cv::Point2f& px, const cv::Mat& desc, bool is_3d) {
+bool Frame::addKeypoint(const std::shared_ptr<Mappoint>& mp,
+                        const cv::Point2f& px,
+                        const cv::Mat& desc) {
+    if (!mp) {
+        return false;
+    }
     Keypoint kp;
-    kp.mpid = mpid;
+    kp.mpid = mp->mpid;
     kp.px = px;
     kp.unpx = _cam_left->undistortPx(kp.px);
     kp.bv = _cam_left->calcBearingVector(kp.unpx);
     kp.desc = desc;
-    kp.is_3d = is_3d;
+    kp.mp = mp;
     std::lock_guard<std::mutex> lock(_kps_mutex);
     return _kps_grid.addKpToGrid(kp);
 }
@@ -60,6 +74,11 @@ bool Frame::addKeypoint(uint64_t mpid, const cv::Point2f& px, const cv::Mat& des
 void Frame::removeKeypoint(uint64_t mpid) {
     std::lock_guard<std::mutex> lock(_kps_mutex);
     _kps_grid.removeKpFromGrid(mpid);
+}
+
+void Frame::clearKeypoints() {
+    std::lock_guard<std::mutex> lock(_kps_mutex);
+    _kps_grid.clear();
 }
 
 bool Frame::updateKeypointStereo(uint64_t mpid, const cv::Point2f& rpx) {
@@ -90,16 +109,6 @@ void Frame::removeKeypointStereo(uint64_t mpid) {
     }
 }
 
-bool Frame::turnKeypoint3d(uint64_t mpid) {
-    std::lock_guard<std::mutex> lock(_kps_mutex);
-    auto it = _kps_grid.map_kps.find(mpid);
-    if (it == _kps_grid.map_kps.end()) {
-        return false;
-    }
-    it->second.is_3d = true;
-    return true;
-}
-
 void Frame::getKeypoints(std::vector<Keypoint>& v) const {
     v.clear();
     std::lock_guard<std::mutex> lock(_kps_mutex);
@@ -122,20 +131,20 @@ void Frame::getKeypoints3d(std::vector<Keypoint>& v) const {
     v.clear();
     std::lock_guard<std::mutex> lock(_kps_mutex);
     for (auto& kpit : _kps_grid.map_kps) {
-        if (kpit.second.is_3d) {
+        if (kpit.second.is3D()) {
             v.push_back(kpit.second);
         }
     }
 }
 
-void Frame::getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) {
+void Frame::getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) const {
     kpid_grid.clear();
     std::lock_guard<std::mutex> lock(_kps_mutex);
     kpid_grid = _kps_grid.grid;
     nbkps = _kps_grid.nbkps;
 }
 
-bool Frame::getKeypointById(uint64_t mpid, Keypoint& kp) {
+bool Frame::getKeypoint(uint64_t mpid, Keypoint& kp) const {
     std::lock_guard<std::mutex> lock(_kps_mutex);
     auto it = _kps_grid.map_kps.find(mpid);
     if (it == _kps_grid.map_kps.end()) {
@@ -211,6 +220,14 @@ void Frame::KpsGrid::removeKpFromGrid(uint64_t mpid) {
         map_kps.erase(it);
         nbkps--;
     }
+}
+
+void Frame::KpsGrid::clear() {
+    map_kps.clear();
+    for (auto& cell : grid) {
+        cell.clear();
+    }
+    nbkps = 0;
 }
 
 int Frame::KpsGrid::getKpCellIdx(const cv::Point2f& px) const {

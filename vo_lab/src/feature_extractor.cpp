@@ -144,6 +144,20 @@ void FeatureExtractor::detect(const cv::Mat& im,
                      cv::Scalar(255, 255, 255),
                      1);
         }
+        cv::putText(im_debug,
+                    "red: oldkps",
+                    cv::Point2f(10, 30),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(im_debug,
+                    "green: newkps",
+                    cv::Point2f(10, 55),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
         cv::imwrite(im_debug_path, im_debug);
     }
 }

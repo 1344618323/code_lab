@@ -10,6 +10,8 @@ debugger:
    kps_extract: "kps_extract"
    klt_tracking: "klt_tracking"
    stereo_matching: "stereo_matching"
+   epi_filter: "epi_filter"
+   pnp: "pnp"
 
 stereo: 1
 imu: 0
@@ -66,12 +68,12 @@ T_b_cr: !!opencv-matrix
        -1.3369211325157163e-01, 1.9873827957019043e+00, 0., 0., 0., 1. ]
 
 # clahe
-use_clahe: true
+use_clahe: 1
 clahe_val: 3
 clahe_tile_size: 50
 
 # feature extractor
-cell_size: 35
+cell_size: 35 # 35
 max_quality: 0.001
 
 # klt tracker
@@ -94,5 +96,12 @@ stereo_match_3d_klt_pyr_lvl: 1
 max_reproj_dist: 3
 
 # epi
-epi_ransac_iter: 100
+epi_from_3d: 1
+epi_ransac_iter: 100 # not useful
 epi_errth: 3
+
+# p3p
+do_p3p: 1
+p3p_optimize: 0
+p3p_ransac_iter: 100
+p3p_errth: 3

@@ -22,6 +22,12 @@ Config::Config(const cv::FileStorage& fs) {
         debugger_node["stereo_matching"] >> debugger.stereo_matching;
         debugger.stereo_matching = debugger.dir + "/" + debugger.stereo_matching;
         mkdir(debugger.stereo_matching);
+        debugger_node["epi_filter"] >> debugger.epi_filter;
+        debugger.epi_filter = debugger.dir + "/" + debugger.epi_filter;
+        mkdir(debugger.epi_filter);
+        debugger_node["pnp"] >> debugger.pnp;
+        debugger.pnp = debugger.dir + "/" + debugger.pnp;
+        mkdir(debugger.pnp);
     }
 
     fs["rosbag_file"] >> rosbag_file;
@@ -82,8 +88,15 @@ Config::Config(const cv::FileStorage& fs) {
     fs["max_reproj_dist"] >> max_reproj_dist;
 
     // epi
+    fs["epi_from_3d"] >> epi_from_3d;
     fs["epi_ransac_iter"] >> epi_ransac_iter;
     fs["epi_errth"] >> epi_errth;
+
+    // p3p
+    fs["do_p3p"] >> do_p3p;
+    fs["p3p_optimize"] >> p3p_optimize;
+    fs["p3p_ransac_iter"] >> p3p_ransac_iter;
+    fs["p3p_errth"] >> p3p_errth;
 }
 
 }  // namespace vo_lab

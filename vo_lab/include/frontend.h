@@ -29,9 +29,10 @@ class Frontend {
     bool tracking(const Frame::Ptr curframe);
 
   private:
-    void preprocessFrame(const Frame::Ptr frame);
-    void kltTracking(const Frame::Ptr frame);
-    void epipolar2d2dFiltering(const Frame::Ptr frame);
+    void preprocessFrame(const Frame::Ptr curframe);
+    void kltTracking(const Frame::Ptr curframe);
+    void epipolar2d2dFiltering(const Frame::Ptr curframe);
+    void computePose(const Frame::Ptr curframe);
     void inheritOldKeypoint(const Frame::Ptr kf);
     bool createNewKeypoint(const Frame::Ptr kf);
 

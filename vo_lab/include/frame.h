@@ -5,8 +5,14 @@
 #include "camera.h"
 
 namespace vo_lab {
-struct Keypoint {
+
+struct Mappoint;
+class Keypoint {
+  public:
     EIGEN_MAKE_ALIGNED_OPERATOR_NEW
+    typedef std::shared_ptr<Keypoint> Ptr;
+    typedef std::shared_ptr<Keypoint const> ConstPtr;
+
     uint64_t mpid;
     cv::Point2f px;
     cv::Point2f unpx;
@@ -22,7 +28,8 @@ struct Keypoint {
     // It should be noted that `is_stereo` indicate whether there's stereo matching
     // point in this frame. `is_3d` may come from historical frames. There may be situations
     // where `is_3d=true` and `is_stereo=false`
-    bool is_3d = false;
+    bool is3D() const;
+    std::weak_ptr<Mappoint> mp;
 };
 
 class Frame {
@@ -40,16 +47,18 @@ class Frame {
           int cellsize);
     // Frame(const Frame& F);
 
-    bool addKeypoint(uint64_t mpid, const cv::Point2f& px, const cv::Mat& desc, bool is_3d = false);
+    bool addKeypoint(const std::shared_ptr<Mappoint>& mp,
+                     const cv::Point2f& px,
+                     const cv::Mat& desc);
     void removeKeypoint(uint64_t mpid);
+    void clearKeypoints();
     bool updateKeypointStereo(uint64_t mpid, const cv::Point2f& rpx);
-    void removeKeypointStereo(uint64_t);
-    bool turnKeypoint3d(uint64_t mpid);
+    void removeKeypointStereo(uint64_t mpid);
     void getKeypoints(std::vector<Keypoint>& v) const;
     void getKeypointsStereo(std::vector<Keypoint>& v) const;
     void getKeypoints3d(std::vector<Keypoint>& v) const;
-    void getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps);
-    bool getKeypointById(uint64_t mpid, Keypoint& kp);
+    void getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) const;
+    bool getKeypoint(uint64_t mpid, Keypoint& kp) const;
     Sophus::SE3d Twc() const;
     Sophus::SE3d Tcw() const;
     void setTwc(const Sophus::SE3d& T);
@@ -82,6 +91,7 @@ class Frame {
         std::vector<std::set<uint64_t>> grid;
         bool addKpToGrid(const Keypoint& kp);
         void removeKpFromGrid(uint64_t mpid);
+        void clear();
 
       private:
         int getKpCellIdx(const cv::Point2f& px) const;
