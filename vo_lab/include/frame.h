@@ -43,13 +43,13 @@ class Frame {
     bool addKeypoint(uint64_t mpid, const cv::Point2f& px, const cv::Mat& desc, bool is_3d = false);
     void removeKeypoint(uint64_t mpid);
     bool updateKeypointStereo(uint64_t mpid, const cv::Point2f& rpx);
-    void removeKeypointStereo(uint64_t);
+    void removeKeypointStereo(uint64_t mpid);
     bool turnKeypoint3d(uint64_t mpid);
     void getKeypoints(std::vector<Keypoint>& v) const;
     void getKeypointsStereo(std::vector<Keypoint>& v) const;
     void getKeypoints3d(std::vector<Keypoint>& v) const;
-    void getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps);
-    bool getKeypointById(uint64_t mpid, Keypoint& kp);
+    void getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) const;
+    bool getKeypoint(uint64_t mpid, Keypoint& kp) const;
     Sophus::SE3d Twc() const;
     Sophus::SE3d Tcw() const;
     void setTwc(const Sophus::SE3d& T);

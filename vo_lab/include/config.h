@@ -10,6 +10,7 @@ struct Debugger {
     std::string kps_extract;
     std::string klt_tracking;
     std::string stereo_matching;
+    std::string epi_filter;
 };
 
 struct Config {
@@ -63,6 +64,7 @@ struct Config {
     float max_reproj_dist;
 
     // epi
+    bool epi_from_3d;
     int epi_ransac_iter;
     float epi_errth;
 };

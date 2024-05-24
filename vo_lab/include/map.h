@@ -15,6 +15,7 @@ class Map {
     void addKeyframe(const Frame::Ptr kf);
     void addMappoint(const Mappoint::Ptr mp);
     Mappoint::Ptr getMappoint(uint64_t mpid) const;
+    std::map<uint64_t, Frame::Ptr> kfs() const;
 
   private:
     const Config& _config;

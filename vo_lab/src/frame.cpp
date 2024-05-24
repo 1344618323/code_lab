@@ -128,14 +128,14 @@ void Frame::getKeypoints3d(std::vector<Keypoint>& v) const {
     }
 }
 
-void Frame::getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) {
+void Frame::getKeppointIdsGrid(std::vector<std::set<uint64_t>>& kpid_grid, size_t& nbkps) const {
     kpid_grid.clear();
     std::lock_guard<std::mutex> lock(_kps_mutex);
     kpid_grid = _kps_grid.grid;
     nbkps = _kps_grid.nbkps;
 }
 
-bool Frame::getKeypointById(uint64_t mpid, Keypoint& kp) {
+bool Frame::getKeypoint(uint64_t mpid, Keypoint& kp) const {
     std::lock_guard<std::mutex> lock(_kps_mutex);
     auto it = _kps_grid.map_kps.find(mpid);
     if (it == _kps_grid.map_kps.end()) {

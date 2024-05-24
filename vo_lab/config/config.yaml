@@ -10,6 +10,7 @@ debugger:
    kps_extract: "kps_extract"
    klt_tracking: "klt_tracking"
    stereo_matching: "stereo_matching"
+   epi_filter: "epi_filter"
 
 stereo: 1
 imu: 0
@@ -94,5 +95,6 @@ stereo_match_3d_klt_pyr_lvl: 1
 max_reproj_dist: 3
 
 # epi
+epi_from_3d: true
 epi_ransac_iter: 100
 epi_errth: 3
