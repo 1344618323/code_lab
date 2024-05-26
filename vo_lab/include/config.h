@@ -11,6 +11,7 @@ struct Debugger {
     std::string klt_tracking;
     std::string stereo_matching;
     std::string epi_filter;
+    std::string pnp;
 };
 
 struct Config {
@@ -67,5 +68,11 @@ struct Config {
     bool epi_from_3d;
     int epi_ransac_iter;
     float epi_errth;
+
+    // p3p
+    bool do_p3p;
+    bool p3p_optimize;
+    int p3p_ransac_iter;
+    float p3p_errth;
 };
 }  // namespace vo_lab

@@ -122,4 +122,86 @@ Eigen::Matrix3d MultiViewGeometry::fundamentalMatrix(const Sophus::SE3d& Twc1,
     return K1.inverse().transpose() * Sophus::SO3d::hat(T12.translation()) * T12.rotationMatrix() *
            K2.inverse();
 }
+
+bool MultiViewGeometry::P3PRansac(const std::vector<Eigen::Vector3d>& bv,
+                                  const std::vector<Eigen::Vector3d>& wpt,
+                                  int maxiter,
+                                  float errth,
+                                  bool optimize,
+                                  float f,
+                                  Sophus::SE3d& Twc,
+                                  std::vector<size_t>& voutlier_idx) {
+    if (bv.size() != wpt.size()) {
+        LOG(ERROR) << "Fatal bug: bv.size() " << bv.size() << " must equal with wpt.size() "
+                   << wpt.size();
+        return false;
+    }
+
+    if (bv.size() < 4) {
+        // https://docs.opencv.org/4.x/d9/d0c/group__calib3d.html#ga50620f0e26e02caa2e9adc07b5fbf24e:
+        // P3P methods (SOLVEPNP_P3P, SOLVEPNP_AP3P): 3 or 4 input points. Number of returned
+        // solutions can be between 0 and 4 with 3 input points.
+        return false;
+    }
+
+    std::vector<cv::Point2f> cvbv;
+    std::vector<cv::Point3f> cvwpt;
+    cvbv.reserve(bv.size());
+    cvwpt.reserve(bv.size());
+    for (size_t i = 0; i < bv.size(); i++) {
+        cvbv.emplace_back(bv[i][0] / bv[i][2], bv[i][1] / bv[i][2]);
+        cvwpt.emplace_back(wpt[i].x(), wpt[i].y(), wpt[i].z());
+    }
+    cv::Mat D;
+    cv::Mat K = cv::Mat::eye(3, 3, CV_32F);
+    cv::Mat tvec, rvec;
+    cv::Mat inliers;
+    bool use_extrinsic_guess = false;
+    cv::solvePnPRansac(cvwpt,
+                       cvbv,
+                       K,
+                       D,
+                       rvec,
+                       tvec,
+                       use_extrinsic_guess,
+                       maxiter,
+                       errth / f,
+                       0.99,
+                       inliers,
+                       cv::SOLVEPNP_P3P);
+    if (inliers.rows < 4) {
+        return false;
+    }
+
+    int k = 0;
+    voutlier_idx.reserve(bv.size());
+    for (size_t i = 0; i < bv.size(); i++) {
+        if (k < inliers.rows && inliers.at<int32_t>(k) == int32_t(i)) {
+            k++;
+        } else {
+            voutlier_idx.push_back(i);
+        }
+    }
+
+    if (optimize) {
+        cvbv.clear();
+        cvwpt.clear();
+        use_extrinsic_guess = true;
+        for (int i = 0; i < inliers.rows; i++) {
+            cvbv.emplace_back(bv[i][0] / bv[i][2], bv[i][1] / bv[i][2]);
+            cvwpt.emplace_back(wpt[i].x(), wpt[i].y(), wpt[i].z());
+        }
+        cv::solvePnP(cvwpt, cvbv, K, D, rvec, tvec, use_extrinsic_guess, cv::SOLVEPNP_ITERATIVE);
+    }
+
+    cv::Mat R;
+    cv::Rodrigues(rvec, R);
+    Eigen::Vector3d tcw;
+    Eigen::Matrix3d Rcw;
+    cv::cv2eigen(tvec, tcw);
+    cv::cv2eigen(R, Rcw);
+    Twc.translation() = -Rcw.transpose() * tcw;
+    Twc.setRotationMatrix(Rcw.transpose());
+    return true;
+}
 }  // namespace vo_lab

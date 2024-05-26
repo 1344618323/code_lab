@@ -67,23 +67,21 @@ void Backend::stereoMatching(const Frame::Ptr kf) {
         auto& kp = vleftkps[i];
 
         // 1. calc 3d prior
-        if (kp.is_3d) {
-            auto mp = _map->getMappoint(kp.mpid);
-            if (mp) {
-                Eigen::Vector3d wpt;
-                if (mp->getPos(wpt)) {
-                    cv::Point2f rpx = kf->projWorldToRightPx(wpt);
-                    if (kf->isInRightImage(rpx)) {
-                        v3dkps.push_back(kp.px);
-                        v3dpriors.push_back(rpx);
-                        v3dkpids.push_back(kp.mpid);
-                        continue;
-                    }
+        auto mp = kp.mp.lock();
+        if (mp) {
+            Eigen::Vector3d wpt;
+            if (mp->getPos(wpt)) {
+                cv::Point2f rpx = kf->projWorldToRightPx(wpt);
+                if (kf->isInRightImage(rpx)) {
+                    v3dkps.push_back(kp.px);
+                    v3dpriors.push_back(rpx);
+                    v3dkpids.push_back(kp.mpid);
+                    continue;
                 }
-            } else {
-                kf->removeKeypoint(kp.mpid);
-                continue;
             }
+        } else {
+            kf->removeKeypoint(kp.mpid);
+            continue;
         }
 
         // 2. calc 2d prior
@@ -259,7 +257,11 @@ void Backend::triangulateStereo(const Frame::Ptr kf) {
     size_t nbgood = 0;
     for (size_t i = 0; i < nbkps; i++) {
         auto& kp = vkps[i];
-        if (!kp.is_3d && kp.is_stereo) {
+        auto mp = kp.mp.lock();
+        if (!mp) {
+            kf->removeKeypoint(kp.mpid);
+            continue;
+        } else if (!mp->is3D() && kp.is_stereo) {
             nbstereos++;
             Eigen::Vector3d left_pt = MultiViewGeometry::triangulate(Trl, kp.bv, kp.rbv);
             Eigen::Vector3d right_pt = Trl * left_pt;
@@ -269,20 +271,11 @@ void Backend::triangulateStereo(const Frame::Ptr kf) {
             auto ldist = cv::norm(lpx_rpj - kp.unpx);
             auto rdist = cv::norm(rpx_rpj - kp.runpx);
             bool rpj_outlier = ldist > _config.max_reproj_dist || rdist > _config.max_reproj_dist;
-
-            auto mp = _map->getMappoint(kp.mpid);
-            if (mp) {
-                if (left_pt.z() > 0.1 && right_pt.z() > 0.1 && !rpj_outlier) {
-                    mp->setPos(kf->Twc() * left_pt);
-                    for (auto& kf_it : mp->getKfObs()) {
-                        kf_it.second->turnKeypoint3d(kp.mpid);
-                    }
-                    nbgood++;
-                } else {
-                    kf->removeKeypointStereo(kp.mpid);
-                }
+            if (left_pt.z() > 0.1 && right_pt.z() > 0.1 && !rpj_outlier) {
+                mp->setPos(kf->Twc() * left_pt);
+                nbgood++;
             } else {
-                kf->removeKeypoint(kp.mpid);
+                kf->removeKeypointStereo(kp.mpid);
             }
         }
     }

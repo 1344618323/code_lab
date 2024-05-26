@@ -10,7 +10,7 @@ class Mappoint {
     Mappoint(const uint64_t mpid, const Frame::Ptr anch_kf, const cv::Mat& desc = cv::Mat());
     void setPos(const Eigen::Vector3d& pos);
     bool getPos(Eigen::Vector3d& pos) const;
-    bool is3d() const;
+    bool is3D() const;
     void addKfObs(const Frame::Ptr kf, const cv::Mat& desc = cv::Mat());
     void removeKfObs(const Frame::Ptr kf);
     std::map<uint64_t, Frame::Ptr> getKfObs() const;

@@ -24,7 +24,7 @@ bool Mappoint::getPos(Eigen::Vector3d& pos) const {
     return true;
 }
 
-bool Mappoint::is3d() const {
+bool Mappoint::is3D() const {
     std::lock_guard<std::mutex> lk(_mp_mutex);
     return _is_3d;
 }

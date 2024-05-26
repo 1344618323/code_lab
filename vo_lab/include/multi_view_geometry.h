@@ -24,10 +24,17 @@ class MultiViewGeometry {
                                 float errth,
                                 bool optimize,
                                 std::vector<size_t>& voutlier_idx);
-
     static Eigen::Matrix3d fundamentalMatrix(const Sophus::SE3d& Twcl,
                                              const Sophus::SE3d& Twc2,
                                              const Eigen::Matrix3d& K1,
                                              const Eigen::Matrix3d& K2);
+    static bool P3PRansac(const std::vector<Eigen::Vector3d>& bv,
+                          const std::vector<Eigen::Vector3d>& wpt,
+                          int maxiter,
+                          float errth,
+                          bool optimize,
+                          float f,
+                          Sophus::SE3d& Twc,
+                          std::vector<size_t>& voutlier_idx);
 };
 }  // namespace vo_lab

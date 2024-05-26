@@ -42,7 +42,7 @@ void Viewer::viewThread() {
         std::vector<Keypoint> kps3d;
         frame->getKeypoints3d(kps3d);
         for (size_t i = 0; i < kps3d.size(); i++) {
-            auto mp = _map->getMappoint(kps3d.at(i).mpid);
+            auto mp = kps3d.at(i).mp.lock();
             Eigen::Vector3d mp_pos;
             if (!mp || !mp->getPos(mp_pos)) {
                 continue;

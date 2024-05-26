@@ -48,8 +48,8 @@ bool Frontend::tracking(const std::shared_ptr<Frame> curframe) {
     return true;
 }
 
-void Frontend::preprocessFrame(const Frame::Ptr frame) {
-    _clahe->apply(frame->im_left_raw, frame->im_left);
+void Frontend::preprocessFrame(const Frame::Ptr curframe) {
+    _clahe->apply(curframe->im_left_raw, curframe->im_left);
     // be careful with `cv::buildOpticalFlowPyramid`:
     // `maxLevel`: 0-based maximal pyramid level number
     // `withDerivatives`: default value is true. precompute gradients for the every pyramid level.
@@ -58,20 +58,20 @@ void Frontend::preprocessFrame(const Frame::Ptr frame) {
     // to true.
     // Output Vector 0, 2, 4, ... representing images with decreasing resolution.
     // If `maxLevel` is 1, then the size of output vector is 4.
-    cv::buildOpticalFlowPyramid(frame->im_left,
-                                frame->pyr_left,
+    cv::buildOpticalFlowPyramid(curframe->im_left,
+                                curframe->pyr_left,
                                 cv::Size(_config.klt_winsize, _config.klt_winsize),
                                 _config.klt_pyr_lvl);
 
     Sophus::SE3d Twc;
-    _motion_model.predict(Twc, frame->time);
-    frame->setTwc(Twc);
-    LOG(ERROR) << "Motion model predict the new pose of frame " << frame->id
+    _motion_model.predict(Twc, curframe->time);
+    curframe->setTwc(Twc);
+    LOG(ERROR) << "Motion model predict the pose of curframe " << curframe->id
                << " is t: " << Twc.translation().transpose()
                << "; q: " << Twc.unit_quaternion().coeffs().transpose();
 }
 
-void Frontend::kltTracking(const Frame::Ptr frame) {
+void Frontend::kltTracking(const Frame::Ptr curframe) {
     if (!_prevframe) {
         return;
     }
@@ -91,17 +91,18 @@ void Frontend::kltTracking(const Frame::Ptr frame) {
     v2dpriors.reserve(vkps.size());
     for (size_t i = 0; i < vkps.size(); i++) {
         const auto& kp = vkps[i];
-        if (_config.klt_use_prior && kp.is_3d) {
-            auto mp = _map->getMappoint(kp.mpid);
-            Eigen::Vector3d mp_pos;
-            if (mp->getPos(mp_pos)) {
-                auto prior_px = frame->projWorldToPx(mp_pos);
-                if (frame->isInImage(prior_px)) {
-                    v3dkps.push_back(kp.px);
-                    v3dpriors.push_back(prior_px);
-                    v3dkpidx.push_back(i);
-                    continue;
-                }
+        auto mp = kp.mp.lock();
+        if (!mp) {
+            continue;
+        }
+        Eigen::Vector3d mp_pos;
+        if (_config.klt_use_prior && mp->getPos(mp_pos)) {
+            auto prior_px = curframe->projWorldToPx(mp_pos);
+            if (curframe->isInImage(prior_px)) {
+                v3dkps.push_back(kp.px);
+                v3dpriors.push_back(prior_px);
+                v3dkpidx.push_back(i);
+                continue;
             }
         }
         v2dkps.push_back(kp.px);
@@ -112,7 +113,7 @@ void Frontend::kltTracking(const Frame::Ptr frame) {
     if (!v3dkps.empty()) {
         size_t nb3dgood = 0;
         _tracker->forwardBackwardKltTracking(_prevframe->pyr_left,
-                                             frame->pyr_left,
+                                             curframe->pyr_left,
                                              _config.klt_pyr_lvl_prior,
                                              v3dkps,
                                              v3dpriors,
@@ -120,45 +121,44 @@ void Frontend::kltTracking(const Frame::Ptr frame) {
 
         for (size_t i = 0; i < v3dkps.size(); i++) {
             if (v3dstatus[i]) {
-                frame->addKeypoint(
-                        vkps[v3dkpidx[i]].mpid, v3dpriors[i], cv::Mat(), vkps[v3dkpidx[i]].is_3d);
-                nb3dgood++;
+                if (curframe->addKeypoint(vkps[v3dkpidx[i]].mp.lock(), v3dpriors[i], cv::Mat())) {
+                    nb3dgood++;
+                }
             } else {
                 v2dkps.push_back(v3dkps[i]);
                 v2dkpidx.push_back(v3dkpidx[i]);
             }
         }
 
-        LOG(ERROR) << "KLT traking from frame " << _prevframe->id << " to frame " << frame->id
-                   << " on 3d priors: " << nb3dgood << " out of " << v3dstatus.size()
-                   << " kps tracked!\n";
+        LOG(ERROR) << "KLT traking from prevframe " << _prevframe->id << " to curframe "
+                   << curframe->id << " on 3d priors: " << nb3dgood << " out of "
+                   << v3dstatus.size() << " kps tracked!\n";
     }
 
     v2dpriors = v2dkps;
     std::vector<bool> v2dstatus;
     size_t nb2dgood = 0;
     _tracker->forwardBackwardKltTracking(_prevframe->pyr_left,
-                                         frame->pyr_left,
+                                         curframe->pyr_left,
                                          _config.klt_pyr_lvl,
                                          v2dkps,
                                          v2dpriors,
                                          v2dstatus);
     for (size_t i = 0; i < v2dkps.size(); i++) {
-        if (v2dstatus[i]) {
-            frame->addKeypoint(
-                    vkps[v2dkpidx[i]].mpid, v2dpriors[i], cv::Mat(), vkps[v2dkpidx[i]].is_3d);
+        if (v2dstatus[i] &&
+            curframe->addKeypoint(vkps[v2dkpidx[i]].mp.lock(), v2dpriors[i], cv::Mat())) {
             nb2dgood++;
         }
     }
-    LOG(ERROR) << "KLT traking from frame " << _prevframe->id << " to frame " << frame->id
+    LOG(ERROR) << "KLT traking from prevframe " << _prevframe->id << " to curframe " << curframe->id
                << " on 2d priors: " << nb2dgood << " out of " << v2dstatus.size()
                << " kps tracked!\n";
 
     if (_config.debugger.debug && !_config.debugger.klt_tracking.empty()) {
         std::string im_debug_path =
-                _config.debugger.klt_tracking + "/" + std::to_string(frame->time) + ".png";
+                _config.debugger.klt_tracking + "/" + std::to_string(curframe->time) + ".png";
         cv::Mat prev_im_debug = _prevframe->im_left.clone();
-        cv::Mat cur_im_debug = frame->im_left.clone();
+        cv::Mat cur_im_debug = curframe->im_left.clone();
         cv::cvtColor(prev_im_debug, prev_im_debug, cv::COLOR_GRAY2BGR);
         cv::cvtColor(cur_im_debug, cur_im_debug, cv::COLOR_GRAY2BGR);
         for (size_t i = 0; i < v3dkps.size(); i++) {
@@ -176,22 +176,37 @@ void Frontend::kltTracking(const Frame::Ptr frame) {
             }
         }
         cv::hconcat(prev_im_debug, cur_im_debug, cur_im_debug);
+        cv::putText(cur_im_debug,
+                    "red: 2Dmatch",
+                    cv::Point2f(10, 30),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(cur_im_debug,
+                    "green: 3Dmatch",
+                    cv::Point2f(10, 55),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
         cv::imwrite(im_debug_path, cur_im_debug);
     }
 }
 
-void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
+void Frontend::epipolar2d2dFiltering(const Frame::Ptr curframe) {
     if (!_prev_kf) {
         return;
     }
     std::vector<Keypoint> curkps;
-    frame->getKeypoints(curkps);
+    curframe->getKeypoints(curkps);
     std::vector<Keypoint> prevkps;
     std::vector<Eigen::Vector3d> curbv, prevbv, cur3dbv, prev3dbv;
 
     // xxxidx[i] = j. i corresponds to idx of `xxxbv`, j corresponds to idx of `xxxkps`
     std::vector<size_t> curbv_idx, prevbv_idx, cur3dbv_idx, prev3dbv_idx;
 
+    prevkps.reserve(curkps.size());
     curbv.reserve(curkps.size());
     prevbv.reserve(curkps.size());
     cur3dbv.reserve(curkps.size());
@@ -212,7 +227,7 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
         prevbv.push_back(prevkp.bv);
         curbv_idx.push_back(i);
         prevbv_idx.push_back(j);
-        if (kp.is_3d) {
+        if (kp.is3D()) {
             cur3dbv.push_back(kp.bv);
             prev3dbv.push_back(prevkp.bv);
             cur3dbv_idx.push_back(i);
@@ -237,17 +252,18 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
     auto& ref_pbv = epi_from_3dkps ? prev3dbv : prevbv;
     auto& ref_cbv_idx = epi_from_3dkps ? cur3dbv_idx : curbv_idx;
     auto& ref_pbv_idx = epi_from_3dkps ? prev3dbv_idx : prevbv_idx;
-    Sophus::SO3d Rotpc = (_prev_kf->Tcw() * frame->Twc()).so3();
+    Sophus::SO3d Rotpc = (_prev_kf->Tcw() * curframe->Twc()).so3();
     double avg_parallax = 0;
     for (size_t i = 0; i < ref_cbv.size(); i++) {
-        cv::Point2f rotpx = frame->camLeft()->projCamToPx(Rotpc * ref_cbv[i]);
+        cv::Point2f rotpx = curframe->camLeft()->projCamToPx(Rotpc * ref_cbv[i]);
         avg_parallax += cv::norm(rotpx - prevkps[ref_pbv_idx[i]].unpx);
     }
     avg_parallax /= ref_cbv.size();
 
     // the parallax is too small, which is bad for solving essential matrix
     if (avg_parallax < 2 * _config.epi_errth) {
-        LOG(ERROR) << "Skip epi filter due to small parallax " << avg_parallax;
+        LOG(ERROR) << "Skip epi filter due to small parallax (epi 3d " << epi_from_3dkps
+                   << "): " << avg_parallax;
         return;
     }
 
@@ -256,7 +272,7 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
         use_epi_motion = true;
     }
 
-    float f = (frame->camLeft()->K()(0, 0) + frame->camLeft()->K()(1, 1)) / 2;
+    float f = (curframe->camLeft()->K()(0, 0) + curframe->camLeft()->K()(1, 1)) / 2;
     Eigen::Matrix3d Rpc;
     Eigen::Vector3d tpc;
 
@@ -275,33 +291,35 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
 
     if (use_epi_motion && _map->kfs().size() > 2) {
         Sophus::SE3d Tpw = _prev_kf->Tcw();
-        Sophus::SE3d Tpc = Tpw * frame->Twc();
+        Sophus::SE3d Tpc = Tpw * curframe->Twc();
         double scale = Tpc.translation().norm();
         tpc.normalize();
         Tpc = Sophus::SE3d(Rpc, tpc * scale);
-        frame->setTwc(_prev_kf->Twc() * Tpc);
+        curframe->setTwc(_prev_kf->Twc() * Tpc);
     }
 
     // remove outliers
     std::unordered_set<uint64_t> outlier_mpids;
     for (auto& idx : outlier_bv_idx) {
         auto& bad_kp = curkps[ref_cbv_idx[idx]];
-        frame->removeKeypoint(bad_kp.mpid);
+        curframe->removeKeypoint(bad_kp.mpid);
         outlier_mpids.insert(bad_kp.mpid);
     }
 
     if (epi_from_3dkps) {
-        Eigen::Matrix3d Fpc = MultiViewGeometry::fundamentalMatrix(
-                _prev_kf->Twc(), frame->Twc(), _prev_kf->camLeft()->K(), frame->camLeft()->K());
+        Eigen::Matrix3d Fpc = MultiViewGeometry::fundamentalMatrix(_prev_kf->Twc(),
+                                                                   curframe->Twc(),
+                                                                   _prev_kf->camLeft()->K(),
+                                                                   curframe->camLeft()->K());
         for (size_t i = 0; i < curbv.size(); i++) {
             const auto& curkp = curkps[curbv_idx[i]];
-            if (curkp.is_3d) {
+            if (curkp.is3D()) {
                 continue;  // has been processed
             }
             const auto& prevkp = prevkps[prevbv_idx[i]];
             float epi_err = MultiViewGeometry::computeSampsonDistance(Fpc, curkp.unpx, prevkp.unpx);
             if (epi_err > _config.epi_errth) {
-                frame->removeKeypoint(curkp.mpid);
+                curframe->removeKeypoint(curkp.mpid);
                 outlier_mpids.insert(curkp.mpid);
             }
         }
@@ -311,29 +329,94 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr frame) {
 
     if (_config.debugger.debug && !_config.debugger.epi_filter.empty()) {
         std::string im_debug_path =
-                _config.debugger.epi_filter + "/" + std::to_string(frame->time) + ".png";
+                _config.debugger.epi_filter + "/" + std::to_string(curframe->time) + ".png";
         cv::Mat prev_im_debug = _prev_kf->im_left.clone();
-        cv::Mat cur_im_debug = frame->im_left.clone();
+        cv::Mat cur_im_debug = curframe->im_left.clone();
         cv::cvtColor(prev_im_debug, prev_im_debug, cv::COLOR_GRAY2BGR);
         cv::cvtColor(cur_im_debug, cur_im_debug, cv::COLOR_GRAY2BGR);
         for (size_t i = 0; i < curbv.size(); i++) {
             const auto& curkp = curkps[curbv_idx[i]];
             const auto& prevkp = prevkps[prevbv_idx[i]];
             cv::Scalar color(0, 0, 0);
-            if (!outlier_mpids.count(curkp.mpid)) {
-                color(0) = 255;
-            } else if (curkp.is_3d) {
-                color(1) = 255;
+            if (outlier_mpids.count(curkp.mpid)) {
+                color(0) = 255;  // outlier: blue
+            } else if (curkp.is3D()) {
+                color(1) = 255;  // 3d inlier: green
             } else {
-                color(2) = 255;
+                color(2) = 255;  // 2d inlier: red
             }
             cv::circle(prev_im_debug, prevkp.px, 3, color, -1);
             cv::circle(cur_im_debug, curkp.px, 3, color, -1);
             cv::line(cur_im_debug, prevkp.px, curkp.px, color);
         }
         cv::hconcat(prev_im_debug, cur_im_debug, cur_im_debug);
+        cv::putText(cur_im_debug,
+                    "red: 2Dinlier",
+                    cv::Point2f(10, 30),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(cur_im_debug,
+                    "green: 3Dinlier",
+                    cv::Point2f(10, 55),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(cur_im_debug,
+                    "blue: outlier",
+                    cv::Point2f(10, 80),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
         cv::imwrite(im_debug_path, cur_im_debug);
     }
+}
+
+void Frontend::computePose(const Frame::Ptr curframe) {
+    std::vector<Keypoint> kps;
+    curframe->getKeypoints(kps);
+    std::vector<Eigen::Vector3d> wpts;
+    std::vector<Eigen::Vector3d> bvs;
+    wpts.reserve(kps.size());
+    bvs.reserve(kps.size());
+    for (auto& kp : kps) {
+        auto mp = kp.mp.lock();
+        Eigen::Vector3d wpt;
+        if (mp && mp->getPos(wpt)) {
+            wpts.push_back(wpt);
+            bvs.push_back(kp.bv);
+        }
+    }
+
+    Eigen::Matrix3d K = curframe->camLeft()->K();
+    Sophus::SE3d Twc = curframe->Twc();
+    std::vector<size_t> p3p_outlier_idx;
+    if (_config.do_p3p) {
+        bool p3p_success = MultiViewGeometry::P3PRansac(bvs,
+                                                        wpts,
+                                                        _config.p3p_ransac_iter,
+                                                        _config.p3p_errth,
+                                                        _config.p3p_optimize,
+                                                        (K(0, 0) + K(1, 1)) / 2,
+                                                        Twc,
+                                                        p3p_outlier_idx);
+        size_t nbinlier = bvs.size() - p3p_outlier_idx.size();
+        if (!p3p_success || nbinlier < 4 || Twc.translation().array().isInf().any() ||
+            Twc.translation().array().isNaN().any()) {
+            LOG(ERROR) << "Fatal situation, clear all kps of curframe " << curframe->id;
+            curframe->clearKeypoints();
+            return;
+        }
+        curframe->setTwc(Twc);
+    }
+
+    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> pxs;
+    
+
+    Sophus::SE3d Twc = curframe->Twc();
 }
 
 void Frontend::inheritOldKeypoint(const Frame::Ptr kf) {
@@ -350,18 +433,20 @@ void Frontend::inheritOldKeypoint(const Frame::Ptr kf) {
                         size_t obs = mp->getKfObs().size();
                         obs_kpid.emplace_back(obs, kpid);
                     } else {
-                        obs_kpid.emplace_back(0, kpid);
+                        kf->removeKeypoint(kpid);
                     }
                 }
-                std::sort(obs_kpid.begin(),
-                          obs_kpid.end(),
-                          [](const std::pair<size_t, uint64_t>& l,
-                             const std::pair<size_t, uint64_t>& r) { return l.first < r.first; });
-                int del_n = obs_kpid.size() - 2;
-                for (auto& p : obs_kpid) {
-                    if (p.first == 0 || del_n > 0) {
-                        kf->removeKeypoint(p.second);
-                        del_n--;
+                size_t nb = obs_kpid.size();
+                if (nb > 2) {
+                    std::sort(
+                            obs_kpid.begin(),
+                            obs_kpid.end(),
+                            [](const std::pair<size_t, uint64_t>& l,
+                               const std::pair<size_t, uint64_t>& r) { return l.first < r.first; });
+                    size_t i = 0;
+                    while (nb > 2) {
+                        kf->removeKeypoint(obs_kpid[i++].second);
+                        nb--;
                     }
                 }
             }
@@ -372,7 +457,7 @@ void Frontend::inheritOldKeypoint(const Frame::Ptr kf) {
     std::vector<Keypoint> kps;
     kf->getKeypoints(kps);
     for (auto& kp : kps) {
-        auto mp = _map->getMappoint(kp.mpid);
+        auto mp = kp.mp.lock();
         if (mp) {
             mp->addKfObs(kf, kp.desc);
         } else {
@@ -399,9 +484,9 @@ bool Frontend::createNewKeypoint(const Frame::Ptr kf) {
         std::vector<cv::Mat> descs;
         _extractor->describeBRIEF(kf->im_left_raw, vnewkps, descs);
         for (size_t i = 0; i < vnewkps.size(); i++) {
-            if (kf->addKeypoint(_mpid, vnewkps[i], descs.at(i))) {
-                Mappoint::Ptr mp = std::make_shared<Mappoint>(_mpid, kf, descs.at(i));
-                _mpid++;
+            Mappoint::Ptr mp = std::make_shared<Mappoint>(_mpid, kf, descs.at(i));
+            _mpid++;
+            if (kf->addKeypoint(mp, vnewkps[i], descs.at(i))) {
                 _map->addMappoint(mp);
                 nbgood++;
             }
