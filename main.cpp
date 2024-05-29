@@ -22,24 +22,12 @@ std::string right_file = "/home/cxn/leofile/slam/slambook2/ch5/stereo/right.png"
 using namespace std;
 
 int main(int argc, char** argv) {
-    std::vector<cv::Point2f> cvbv;
-    std::vector<cv::Point3f> cvwpt;
-
-    for (size_t i = 0; i < 4; i++) {
-        cv::Mat m(2, 1, CV_32F);
-        cv::randn(m, 0, 1);
-        cvbv.emplace_back(m.at<float>(0, 0), m.at<float>(1, 0));
-        cvwpt.emplace_back(m.at<float>(0, 0), m.at<float>(1, 0), 1);
+    Eigen::Quaterniond q(1, 0, 0, 0);
+    std::vector<double> v(4);
+    Eigen::Map<Eigen::Quaterniond> m(&v[0]);
+    m = q;
+    for (auto& i : v) {
+        std::cout << i << std::endl;
     }
-    cv::Mat D;
-    cv::Mat K = cv::Mat::eye(3, 3, CV_32F);
-    cv::Mat tvec, rvec;
-    cv::Mat inliers;
-    cv::solvePnPRansac(
-            cvwpt, cvbv, K, D, rvec, tvec, false, 100, 3 / 480.0, 0.99, inliers, cv::SOLVEPNP_P3P);
-    if (inliers.rows == 0) {
-        return false;
-    }
-    std::cout << inliers.depth() << " " << inliers.rows << " " << inliers.cols << std::endl;
     return 0;
 }

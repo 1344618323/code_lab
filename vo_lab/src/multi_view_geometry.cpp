@@ -204,4 +204,18 @@ bool MultiViewGeometry::P3PRansac(const std::vector<Eigen::Vector3d>& bv,
     Twc.setRotationMatrix(Rcw.transpose());
     return true;
 }
+
+bool MultiViewGeometry::ceresPnP(
+        const std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>& unpts,
+        const std::vector<Eigen::Vector3d>& wpts,
+        Sophus::SE3d& Twc,
+        int maxiter,
+        std::vector<size_t>& voutlier_idx) {
+    if (unpts.size() != wpts.size() || unpts.size() < 4) {
+        return false;
+    }
+    
+    return true;
+}
+
 }  // namespace vo_lab

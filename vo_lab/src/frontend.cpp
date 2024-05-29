@@ -37,6 +37,7 @@ bool Frontend::tracking(const std::shared_ptr<Frame> curframe) {
     if (_prevframe) {
         kltTracking(curframe);
         epipolar2d2dFiltering(curframe);
+        computePose(curframe);
     }
     if (is_kf) {
         inheritOldKeypoint(curframe);
@@ -45,6 +46,7 @@ bool Frontend::tracking(const std::shared_ptr<Frame> curframe) {
         _prev_kf = curframe;
     }
     _prevframe = curframe;
+    _motion_model.update(curframe->Twc(), curframe->time);
     return true;
 }
 
@@ -282,8 +284,9 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr curframe) {
     bool epi_success = MultiViewGeometry::essentialMatrix(
             ref_cbv, ref_pbv, Rpc, tpc, f, _config.epi_errth, use_epi_motion, outlier_bv_idx);
 
-    LOG(ERROR) << "Calc Epi matrix from " << ref_cbv.size() << (epi_from_3dkps ? " 3d" : " ")
-               << "pts. outlier nb: " << outlier_bv_idx.size();
+    LOG(ERROR) << "Epipolar filter: curframe " << curframe->id << " filter "
+               << outlier_bv_idx.size() << " outliers from " << ref_cbv.size()
+               << (epi_from_3dkps ? " 3d" : " ") << "kps";
     if (!epi_success || outlier_bv_idx.size() > 0.5 * ref_cbv.size()) {
         LOG(ERROR) << "Too many outliers, skip epi filter as meight be a degenerate case";
         return;
@@ -323,9 +326,9 @@ void Frontend::epipolar2d2dFiltering(const Frame::Ptr curframe) {
                 outlier_mpids.insert(curkp.mpid);
             }
         }
+        LOG(ERROR) << "Epipolar filter: curframe " << curframe->id << " filter "
+                   << outlier_mpids.size() << " outliers from " << curbv.size() << " kps";
     }
-    LOG(ERROR) << "Epi filter " << outlier_mpids.size() << " outliers from " << curbv.size()
-               << " kps";
 
     if (_config.debugger.debug && !_config.debugger.epi_filter.empty()) {
         std::string im_debug_path =
@@ -380,15 +383,21 @@ void Frontend::computePose(const Frame::Ptr curframe) {
     curframe->getKeypoints(kps);
     std::vector<Eigen::Vector3d> wpts;
     std::vector<Eigen::Vector3d> bvs;
+    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> pxs;
     wpts.reserve(kps.size());
     bvs.reserve(kps.size());
+    pxs.reserve(pxs.size());
     for (auto& kp : kps) {
         auto mp = kp.mp.lock();
         Eigen::Vector3d wpt;
         if (mp && mp->getPos(wpt)) {
             wpts.push_back(wpt);
             bvs.push_back(kp.bv);
+            pxs.emplace_back(kp.px.x, kp.px.y);
         }
+    }
+    if (wpts.empty()) {
+        return;
     }
 
     Eigen::Matrix3d K = curframe->camLeft()->K();
@@ -411,12 +420,82 @@ void Frontend::computePose(const Frame::Ptr curframe) {
             return;
         }
         curframe->setTwc(Twc);
+        LOG(ERROR) << "P3P: curframe " << curframe->id << " filter " << p3p_outlier_idx.size()
+                   << " outliers from " << bvs.size()
+                   << " 3dkps. Twc t: " << Twc.translation().transpose()
+                   << " ; q: " << Twc.unit_quaternion().coeffs().transpose();
     }
 
-    std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>> pxs;
-    
+    decltype(wpts) wpts_pnp;
+    decltype(pxs) pxs_pnp;
+    wpts_pnp.reserve(wpts.size());
+    pxs_pnp.reserve(wpts.size());
+    size_t outlier_i = 0;
+    size_t src_i = 0;
+    for (; outlier_i < p3p_outlier_idx.size(); outlier_i++) {
+        while (src_i < p3p_outlier_idx[outlier_i]) {
+            wpts_pnp.push_back(wpts[src_i]);
+            pxs_pnp.push_back(pxs[src_i]);
+            src_i++;
+        }
+        src_i = p3p_outlier_idx[outlier_i] + 1;
+    }
+    while (src_i < wpts.size()) {
+        wpts_pnp.push_back(wpts[src_i]);
+        pxs_pnp.push_back(pxs[src_i]);
+        src_i++;
+    }
 
-    Sophus::SE3d Twc = curframe->Twc();
+    std::vector<size_t> pnp_outlier_idx;
+
+    if (_config.debugger.debug && !_config.debugger.pnp.empty()) {
+        std::string im_debug_path =
+                _config.debugger.pnp + "/" + std::to_string(curframe->time) + ".png";
+        cv::Mat cur_im_debug = curframe->im_left.clone();
+        cv::cvtColor(cur_im_debug, cur_im_debug, cv::COLOR_GRAY2BGR);
+        for (size_t i = 0; i < p3p_outlier_idx.size(); i++) {
+            auto px = pxs[p3p_outlier_idx[i]];
+            cv::circle(cur_im_debug, cv::Point2f(px.x(), px.y()), 3, cv::Scalar(0, 0, 255), -1);
+        }
+        size_t inlier_i = 0;
+        for (size_t outlier_i = 0; outlier_i < pnp_outlier_idx.size(); outlier_i++) {
+            auto px = pxs_pnp[pnp_outlier_idx[outlier_i]];
+            cv::circle(cur_im_debug, cv::Point2f(px.x(), px.y()), 3, cv::Scalar(0, 255, 0), -1);
+            while (inlier_i < pnp_outlier_idx[outlier_i]) {
+                auto px = pxs_pnp[inlier_i];
+                cv::circle(cur_im_debug, cv::Point2f(px.x(), px.y()), 3, cv::Scalar(255, 0, 0), -1);
+                inlier_i++;
+            }
+            inlier_i = pnp_outlier_idx[outlier_i] + 1;
+        }
+        while (inlier_i < pxs_pnp.size()) {
+            auto px = pxs_pnp[inlier_i];
+            cv::circle(cur_im_debug, cv::Point2f(px.x(), px.y()), 3, cv::Scalar(255, 0, 0), -1);
+            inlier_i++;
+        }
+        cv::putText(cur_im_debug,
+                    "red: p3p outlier",
+                    cv::Point2f(10, 30),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(cur_im_debug,
+                    "green: pnp outlier",
+                    cv::Point2f(10, 55),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::putText(cur_im_debug,
+                    "blue: inlier",
+                    cv::Point2f(10, 80),
+                    cv::FONT_HERSHEY_PLAIN,
+                    1.4,
+                    cv::Scalar(255, 0, 255),
+                    2);
+        cv::imwrite(im_debug_path, cur_im_debug);
+    }
 }
 
 void Frontend::inheritOldKeypoint(const Frame::Ptr kf) {

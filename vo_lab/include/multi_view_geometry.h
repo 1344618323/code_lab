@@ -36,5 +36,11 @@ class MultiViewGeometry {
                           float f,
                           Sophus::SE3d& Twc,
                           std::vector<size_t>& voutlier_idx);
+    static bool ceresPnP(
+            const std::vector<Eigen::Vector2d, Eigen::aligned_allocator<Eigen::Vector2d>>& unpt,
+            const std::vector<Eigen::Vector3d>& wpt,
+            Sophus::SE3d& Twc,
+            int maxiter,
+            std::vector<size_t>& voutlier_idx);
 };
 }  // namespace vo_lab

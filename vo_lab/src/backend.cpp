@@ -266,8 +266,8 @@ void Backend::triangulateStereo(const Frame::Ptr kf) {
             Eigen::Vector3d left_pt = MultiViewGeometry::triangulate(Trl, kp.bv, kp.rbv);
             Eigen::Vector3d right_pt = Trl * left_pt;
 
-            auto lpx_rpj = kf->projWorldToUnpx(left_pt);
-            auto rpx_rpj = kf->projWorldToRightUnpx(left_pt);
+            auto lpx_rpj = kf->camLeft()->projCamToUnpx(left_pt);
+            auto rpx_rpj = kf->camRight()->projCamToUnpx(right_pt);
             auto ldist = cv::norm(lpx_rpj - kp.unpx);
             auto rdist = cv::norm(rpx_rpj - kp.runpx);
             bool rpj_outlier = ldist > _config.max_reproj_dist || rdist > _config.max_reproj_dist;

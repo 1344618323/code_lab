@@ -15,7 +15,9 @@ add_library(vo_lab
     src/backend.cpp
     src/estimator.cpp
     src/viewer.cpp
+    src/ceres_parametrization.cpp
 )
+
 target_link_libraries(vo_lab
     ${third_party_libs}
 )
